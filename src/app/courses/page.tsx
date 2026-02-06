@@ -73,19 +73,36 @@ export default function CoursesPage() {
     <div className="min-h-screen bg-gray-50">
       {/* 헤더 */}
       <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">내 강의실</h1>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600">
-              {user?.name || user?.email}
-            </span>
-            <button
-              onClick={handleLogout}
-              className="text-sm text-gray-500 hover:text-gray-700"
-            >
-              로그아웃
-            </button>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex justify-between items-center">
+            <h1 className="text-2xl font-bold text-gray-900">내 강의실</h1>
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-gray-600">
+                {user?.name || user?.email}
+              </span>
+              <button
+                onClick={handleLogout}
+                className="text-sm text-gray-500 hover:text-gray-700"
+              >
+                로그아웃
+              </button>
+            </div>
           </div>
+          {/* 네비게이션 */}
+          <nav className="mt-4 flex gap-4 border-t pt-4">
+            <Link
+              href="/courses"
+              className="text-blue-600 font-medium border-b-2 border-blue-600 pb-1"
+            >
+              강의 목록
+            </Link>
+            <Link
+              href="/videos"
+              className="text-gray-500 hover:text-gray-700"
+            >
+              비디오 라이브러리
+            </Link>
+          </nav>
         </div>
       </header>
 

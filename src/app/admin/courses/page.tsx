@@ -83,7 +83,7 @@ export default function AdminCoursesPage() {
     if (editingCourse) {
       const { error } = await supabase
         .from('courses')
-        .update(payload)
+        .update(payload as never)
         .eq('id', editingCourse.id)
 
       if (error) {
@@ -93,7 +93,7 @@ export default function AdminCoursesPage() {
         closeModal()
       }
     } else {
-      const { error } = await supabase.from('courses').insert(payload)
+      const { error } = await supabase.from('courses').insert(payload as never)
 
       if (error) {
         alert(`생성 실패: ${error.message}`)
