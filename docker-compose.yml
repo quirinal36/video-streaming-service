@@ -1,0 +1,46 @@
+# Docker Compose for Development
+# Usage: docker compose up -d
+
+services:
+  # Next.js Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        FASTAPI_URL: http://backend:8000
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - FASTAPI_URL=http://backend:8000
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - DATABASE_URL=${DATABASE_URL}
+      - BUNNY_STREAM_API_KEY=${BUNNY_STREAM_API_KEY}
+      - BUNNY_VIDEO_LIBRARY_ID=${BUNNY_VIDEO_LIBRARY_ID}
+      - BUNNY_VIDEO_LIBRARY_HOSTNAME=${BUNNY_VIDEO_LIBRARY_HOSTNAME}
+      - BUNNY_STREAM_TOKEN_AUTH_KEY=${BUNNY_STREAM_TOKEN_AUTH_KEY}
+      - FRONTEND_URL=http://localhost:3000
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

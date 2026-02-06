@@ -30,7 +30,24 @@
 cp .env.example .env
 ```
 
-### Frontend (Next.js)
+### Docker로 실행 (권장)
+
+개발 환경 (Hot Reload):
+```bash
+docker compose -f docker-compose.dev.yml up
+```
+
+프로덕션 환경:
+```bash
+docker compose up -d
+```
+
+- Frontend: http://localhost:3000
+- Backend: http://localhost:8000
+
+### 로컬에서 직접 실행
+
+#### Frontend (Next.js)
 
 ```bash
 npm install

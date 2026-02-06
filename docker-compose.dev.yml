@@ -1,0 +1,50 @@
+# Docker Compose for Development with Hot Reload
+# Usage: docker compose -f docker-compose.dev.yml up
+
+services:
+  # Next.js Frontend (Development)
+  frontend:
+    image: node:22-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev"
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - FASTAPI_URL=http://backend:8000
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+  # FastAPI Backend (Development)
+  backend:
+    image: python:3.12-slim
+    working_dir: /app
+    command: sh -c "pip install -r requirements.txt && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - DATABASE_URL=${DATABASE_URL}
+      - BUNNY_STREAM_API_KEY=${BUNNY_STREAM_API_KEY}
+      - BUNNY_VIDEO_LIBRARY_ID=${BUNNY_VIDEO_LIBRARY_ID}
+      - BUNNY_VIDEO_LIBRARY_HOSTNAME=${BUNNY_VIDEO_LIBRARY_HOSTNAME}
+      - BUNNY_STREAM_TOKEN_AUTH_KEY=${BUNNY_STREAM_TOKEN_AUTH_KEY}
+      - FRONTEND_URL=http://localhost:3000
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
