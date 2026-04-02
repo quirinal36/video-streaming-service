@@ -56,4 +56,12 @@ env/
 .eggs/
 *.egg-info/
 *.egg
-*.png
+
+# Supabase
+supabase/.temp/
+
+# TypeScript
+tsconfig.tsbuildinfo
+
+# OMC
+.omc/
