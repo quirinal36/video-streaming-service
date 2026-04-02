@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import auth, courses, videos, admin
+from app.routers import auth, courses, videos, admin, teacher, comments
 
 app = FastAPI(
     title="Video Streaming API",
@@ -24,6 +24,8 @@ app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(courses.router, prefix="/api/courses", tags=["courses"])
 app.include_router(videos.router, prefix="/api/videos", tags=["videos"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
+app.include_router(teacher.router, prefix="/api/teacher", tags=["teacher"])
+app.include_router(comments.router, prefix="/api", tags=["comments"])
 
 
 @app.get("/health")

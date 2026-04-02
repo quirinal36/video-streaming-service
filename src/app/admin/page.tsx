@@ -19,24 +19,25 @@ export default function AdminDashboard() {
     totalEnrollments: 0,
   })
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [courses, videos, users, enrollments] = await Promise.all([
-          supabase.from('courses').select('*', { count: 'exact', head: true }),
-          supabase.from('videos').select('*', { count: 'exact', head: true }),
-          supabase.from('profiles').select('*', { count: 'exact', head: true }),
-          supabase.from('enrollments').select('*', { count: 'exact', head: true }),
-        ])
+        const supabase = createClient()
+        const { data: { session } } = await supabase.auth.getSession()
 
-        setStats({
-          totalCourses: courses.count || 0,
-          totalVideos: videos.count || 0,
-          totalUsers: users.count || 0,
-          totalEnrollments: enrollments.count || 0,
+        if (!session?.access_token) return
+
+        const res = await fetch('/api/admin/stats', {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
         })
+
+        if (res.ok) {
+          const data = await res.json()
+          setStats(data)
+        }
       } catch (error) {
         console.error('Failed to fetch stats:', error)
       } finally {
@@ -45,7 +46,7 @@ export default function AdminDashboard() {
     }
 
     fetchStats()
-  }, [supabase])
+  }, [])
 
   if (loading) {
     return (

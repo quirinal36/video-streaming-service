@@ -14,6 +14,27 @@ from app.schemas.common import MessageResponse
 router = APIRouter()
 
 
+# ============== Dashboard Stats ==============
+
+
+@router.get("/stats")
+async def admin_get_stats(current_user: dict = Depends(get_current_admin_user)):
+    """대시보드 통계 조회 (관리자)"""
+    supabase = get_supabase_admin_client()
+
+    courses = supabase.table("courses").select("*", count="exact").execute()
+    videos = supabase.table("videos").select("*", count="exact").execute()
+    users = supabase.table("profiles").select("*", count="exact").execute()
+    enrollments = supabase.table("enrollments").select("*", count="exact").execute()
+
+    return {
+        "totalCourses": courses.count or 0,
+        "totalVideos": videos.count or 0,
+        "totalUsers": users.count or 0,
+        "totalEnrollments": enrollments.count or 0,
+    }
+
+
 # ============== Course Management ==============
 
 
@@ -24,6 +45,25 @@ async def admin_get_courses(current_user: dict = Depends(get_current_admin_user)
 
     courses = supabase.table("courses").select("*").execute()
     return courses.data or []
+
+
+@router.get("/courses/{course_id}/videos", response_model=List[VideoResponse])
+async def admin_get_course_videos(
+    course_id: UUID,
+    current_user: dict = Depends(get_current_admin_user),
+):
+    """강의 내 비디오 목록 조회 (관리자)"""
+    supabase = get_supabase_admin_client()
+
+    videos = (
+        supabase.table("videos")
+        .select("*")
+        .eq("course_id", str(course_id))
+        .order("order_index")
+        .execute()
+    )
+
+    return videos.data or []
 
 
 @router.post("/courses", response_model=CourseResponse)
@@ -450,10 +490,10 @@ async def admin_update_user_role(
     """사용자 역할 변경 (관리자)"""
     supabase = get_supabase_admin_client()
 
-    if role not in ["student", "admin"]:
+    if role not in ["student", "teacher", "admin"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid role. Must be 'student' or 'admin'",
+            detail="Invalid role. Must be 'student', 'teacher', or 'admin'",
         )
 
     result = (

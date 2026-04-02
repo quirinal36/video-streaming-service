@@ -13,6 +13,7 @@ class CourseBase(BaseModel):
 
 class CourseCreate(CourseBase):
     is_published: bool = False
+    teacher_id: Optional[str] = None
 
 
 class CourseUpdate(BaseModel):
@@ -25,6 +26,7 @@ class CourseUpdate(BaseModel):
 class CourseResponse(CourseBase):
     id: UUID
     is_published: bool
+    teacher_id: Optional[str] = None
     created_at: datetime
 
     class Config:

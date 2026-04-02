@@ -14,7 +14,7 @@ export interface Database {
           id: string
           email: string
           name: string | null
-          role: 'student' | 'admin'
+          role: 'student' | 'teacher' | 'admin'
           created_at: string
           updated_at: string
         }
@@ -22,7 +22,7 @@ export interface Database {
           id: string
           email: string
           name?: string | null
-          role?: 'student' | 'admin'
+          role?: 'student' | 'teacher' | 'admin'
           created_at?: string
           updated_at?: string
         }
@@ -30,7 +30,7 @@ export interface Database {
           id?: string
           email?: string
           name?: string | null
-          role?: 'student' | 'admin'
+          role?: 'student' | 'teacher' | 'admin'
           created_at?: string
           updated_at?: string
         }
@@ -41,6 +41,7 @@ export interface Database {
           title: string
           description: string | null
           thumbnail_url: string | null
+          teacher_id: string | null
           is_published: boolean
           created_at: string
         }
@@ -49,6 +50,7 @@ export interface Database {
           title: string
           description?: string | null
           thumbnail_url?: string | null
+          teacher_id?: string | null
           is_published?: boolean
           created_at?: string
         }
@@ -57,6 +59,7 @@ export interface Database {
           title?: string
           description?: string | null
           thumbnail_url?: string | null
+          teacher_id?: string | null
           is_published?: boolean
           created_at?: string
         }
@@ -149,6 +152,33 @@ export interface Database {
         }
       }
     }
+      comments: {
+        Row: {
+          id: string
+          video_id: string
+          user_id: string
+          content: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          video_id: string
+          user_id: string
+          content: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          video_id?: string
+          user_id?: string
+          content?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+    }
     Views: {
       [_ in never]: never
     }
@@ -167,3 +197,4 @@ export type Course = Database['public']['Tables']['courses']['Row']
 export type Video = Database['public']['Tables']['videos']['Row']
 export type Enrollment = Database['public']['Tables']['enrollments']['Row']
 export type WatchHistory = Database['public']['Tables']['watch_history']['Row']
+export type Comment = Database['public']['Tables']['comments']['Row']

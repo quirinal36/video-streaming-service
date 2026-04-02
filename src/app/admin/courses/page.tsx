@@ -9,7 +9,7 @@ interface Course {
   title: string
   description: string
   thumbnail_url: string | null
-  instructor_name: string | null
+  teacher_id: string | null
   is_published: boolean
   created_at: string
 }
@@ -20,6 +20,33 @@ interface Video {
   order_index: number
 }
 
+async function getToken() {
+  const supabase = createClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  return session?.access_token || null
+}
+
+async function apiFetch(path: string, options: RequestInit = {}) {
+  const token = await getToken()
+  if (!token) throw new Error('Not authenticated')
+
+  const res = await fetch(path, {
+    ...options,
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  })
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ detail: 'Request failed' }))
+    throw new Error(error.detail || 'Request failed')
+  }
+
+  return res.json()
+}
+
 export default function AdminCoursesPage() {
   const searchParams = useSearchParams()
   const [courses, setCourses] = useState<Course[]>([])
@@ -27,13 +54,11 @@ export default function AdminCoursesPage() {
   const [showModal, setShowModal] = useState(false)
   const [editingCourse, setEditingCourse] = useState<Course | null>(null)
   const [courseVideos, setCourseVideos] = useState<{ [key: string]: Video[] }>({})
-  const supabase = createClient()
 
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     thumbnail_url: '',
-    instructor_name: '',
     is_published: false,
   })
 
@@ -46,25 +71,21 @@ export default function AdminCoursesPage() {
 
   const fetchCourses = async () => {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('courses')
-      .select('*')
-      .order('created_at', { ascending: false })
+    try {
+      const data = await apiFetch('/api/admin/courses')
+      setCourses(data)
 
-    if (!error && data) {
-      const coursesData = data as Course[]
-      setCourses(coursesData)
-      // 각 강의의 비디오 수 조회
-      for (const course of coursesData) {
-        const { data: videos } = await supabase
-          .from('videos')
-          .select('id, title, order_index')
-          .eq('course_id', course.id)
-          .order('order_index')
-        if (videos) {
-          setCourseVideos(prev => ({ ...prev, [course.id]: videos as Video[] }))
+      // 각 강의의 비디오 조회
+      for (const course of data) {
+        try {
+          const videos = await apiFetch(`/api/admin/courses/${course.id}/videos`)
+          setCourseVideos(prev => ({ ...prev, [course.id]: videos }))
+        } catch {
+          setCourseVideos(prev => ({ ...prev, [course.id]: [] }))
         }
       }
+    } catch (error) {
+      console.error('Failed to fetch courses:', error)
     }
     setLoading(false)
   }
@@ -72,35 +93,30 @@ export default function AdminCoursesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // DB 스키마에 존재하는 필드만 전송
-    const payload: Record<string, unknown> = {
+    const payload = {
       title: formData.title,
       description: formData.description || null,
       thumbnail_url: formData.thumbnail_url || null,
       is_published: formData.is_published,
     }
 
-    if (editingCourse) {
-      const { error } = await supabase
-        .from('courses')
-        .update(payload as never)
-        .eq('id', editingCourse.id)
-
-      if (error) {
-        alert(`수정 실패: ${error.message}`)
+    try {
+      if (editingCourse) {
+        await apiFetch(`/api/admin/courses/${editingCourse.id}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload),
+        })
       } else {
-        fetchCourses()
-        closeModal()
+        await apiFetch('/api/admin/courses', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        })
       }
-    } else {
-      const { error } = await supabase.from('courses').insert(payload as never)
-
-      if (error) {
-        alert(`생성 실패: ${error.message}`)
-      } else {
-        fetchCourses()
-        closeModal()
-      }
+      fetchCourses()
+      closeModal()
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '작업 실패'
+      alert(message)
     }
   }
 
@@ -109,16 +125,13 @@ export default function AdminCoursesPage() {
       return
     }
 
-    // 관련 데이터 삭제
-    await supabase.from('watch_history').delete().in(
-      'video_id',
-      (courseVideos[courseId] || []).map(v => v.id)
-    )
-    await supabase.from('videos').delete().eq('course_id', courseId)
-    await supabase.from('enrollments').delete().eq('course_id', courseId)
-    await supabase.from('courses').delete().eq('id', courseId)
-
-    fetchCourses()
+    try {
+      await apiFetch(`/api/admin/courses/${courseId}`, { method: 'DELETE' })
+      fetchCourses()
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '삭제 실패'
+      alert(message)
+    }
   }
 
   const openEditModal = (course: Course) => {
@@ -127,7 +140,6 @@ export default function AdminCoursesPage() {
       title: course.title,
       description: course.description || '',
       thumbnail_url: course.thumbnail_url || '',
-      instructor_name: course.instructor_name || '',
       is_published: course.is_published,
     })
     setShowModal(true)
@@ -140,7 +152,6 @@ export default function AdminCoursesPage() {
       title: '',
       description: '',
       thumbnail_url: '',
-      instructor_name: '',
       is_published: false,
     })
   }
@@ -197,7 +208,6 @@ export default function AdminCoursesPage() {
                     )}
                     <div>
                       <div className="text-sm font-medium text-gray-900">{course.title}</div>
-                      <div className="text-sm text-gray-500">{course.instructor_name}</div>
                     </div>
                   </div>
                 </td>
@@ -281,17 +291,6 @@ export default function AdminCoursesPage() {
                     type="url"
                     value={formData.thumbnail_url}
                     onChange={(e) => setFormData({ ...formData, thumbnail_url: e.target.value })}
-                    className="w-full border rounded-lg px-3 py-2"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    강사명
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.instructor_name}
-                    onChange={(e) => setFormData({ ...formData, instructor_name: e.target.value })}
                     className="w-full border rounded-lg px-3 py-2"
                   />
                 </div>
