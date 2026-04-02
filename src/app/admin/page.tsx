@@ -4,6 +4,30 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
+async function getToken() {
+  const supabase = createClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  return session?.access_token || null
+}
+
+async function apiFetch(path: string) {
+  const token = await getToken()
+  if (!token) throw new Error('Not authenticated')
+
+  const res = await fetch(path, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  })
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ detail: 'Request failed' }))
+    throw new Error(error.detail || 'Request failed')
+  }
+
+  return res.json()
+}
+
 interface Stats {
   totalCourses: number
   totalVideos: number
@@ -23,21 +47,8 @@ export default function AdminDashboard() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const supabase = createClient()
-        const { data: { session } } = await supabase.auth.getSession()
-
-        if (!session?.access_token) return
-
-        const res = await fetch('/api/admin/stats', {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-        })
-
-        if (res.ok) {
-          const data = await res.json()
-          setStats(data)
-        }
+        const data = await apiFetch('/api/admin/stats')
+        setStats(data)
       } catch (error) {
         console.error('Failed to fetch stats:', error)
       } finally {

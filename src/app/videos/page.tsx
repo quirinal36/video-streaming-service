@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { createClient } from '@/lib/supabase/client'
 import { VideoListSkeleton } from '@/components/Skeleton'
 
 interface Video {
@@ -33,66 +32,66 @@ export default function VideosPage() {
   const [watchHistory, setWatchHistory] = useState<Map<string, WatchHistory>>(new Map())
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'in-progress' | 'completed'>('all')
-  const supabase = createClient()
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         // 현재 사용자 확인
-        const { data: { user } } = await supabase.auth.getUser()
-        
-        if (!user) {
+        const userResponse = await fetch('/api/auth/me')
+        if (!userResponse.ok) {
           router.push('/login?redirectTo=/videos')
           return
         }
 
-        // 사용자가 등록한 강의의 비디오 목록 가져오기
-        const { data: enrollments } = await supabase
-          .from('enrollments')
-          .select('course_id')
-          .eq('user_id', user.id)
-
-        if (!enrollments || enrollments.length === 0) {
+        // 수강 중인 강의 목록 가져오기
+        const coursesResponse = await fetch('/api/courses')
+        if (!coursesResponse.ok) {
           setLoading(false)
           return
         }
 
-        const courseIds = (enrollments as { course_id: string }[]).map(e => e.course_id)
+        const coursesData = await coursesResponse.json()
+        const coursesList = coursesData.courses || []
 
-        // 비디오 목록
-        const { data: videosData } = await supabase
-          .from('videos')
-          .select(`
-            id,
-            title,
-            description,
-            bunny_thumbnail,
-            duration_seconds,
-            order_index,
-            course_id,
-            courses (
-              id,
-              title
-            )
-          `)
-          .in('course_id', courseIds)
-          .order('order_index')
-
-        // 시청 기록
-        const { data: historyData } = await supabase
-          .from('watch_history')
-          .select('video_id, progress_seconds, is_completed')
-          .eq('user_id', user.id)
-
-        if (videosData) {
-          setVideos(videosData as unknown as Video[])
+        if (coursesList.length === 0) {
+          setLoading(false)
+          return
         }
 
-        if (historyData) {
-          const historyMap = new Map<string, WatchHistory>()
-          ;(historyData as WatchHistory[]).forEach(h => historyMap.set(h.video_id, h))
-          setWatchHistory(historyMap)
-        }
+        // 각 강의의 비디오 목록 가져오기 (시청 기록 포함)
+        const allVideos: Video[] = []
+        const historyMap = new Map<string, WatchHistory>()
+
+        await Promise.all(
+          coursesList.map(async (course: { id: string; title: string }) => {
+            const videosResponse = await fetch(`/api/courses/${course.id}`)
+            if (videosResponse.ok) {
+              const data = await videosResponse.json()
+              const videos = data.videos || []
+              videos.forEach((video: any) => {
+                allVideos.push({
+                  ...video,
+                  course_id: course.id,
+                  courses: { id: course.id, title: course.title },
+                  bunny_thumbnail: video.bunny_thumbnail || null,
+                  duration_seconds: video.duration_seconds || null,
+                })
+                if (video.progress_seconds > 0 || video.is_completed) {
+                  historyMap.set(video.id, {
+                    video_id: video.id,
+                    progress_seconds: video.progress_seconds || 0,
+                    is_completed: video.is_completed || false,
+                  })
+                }
+              })
+            }
+          })
+        )
+
+        // order_index로 정렬
+        allVideos.sort((a, b) => a.order_index - b.order_index)
+        setVideos(allVideos)
+        setWatchHistory(historyMap)
       } catch (error) {
         console.error('Failed to fetch videos:', error)
       } finally {
@@ -101,7 +100,7 @@ export default function VideosPage() {
     }
 
     fetchData()
-  }, [supabase, router])
+  }, [router])
 
   const formatDuration = (seconds: number | null) => {
     if (!seconds) return '--:--'

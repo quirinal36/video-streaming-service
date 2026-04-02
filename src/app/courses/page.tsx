@@ -24,22 +24,13 @@ export default function CoursesPage() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const supabase = createClient()
-
       // 사용자 정보 가져오기
-      const { data: { user: authUser } } = await supabase.auth.getUser()
-      if (authUser) {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('name')
-          .eq('id', authUser.id)
-          .single()
-
-        const profile = profileData as { name: string | null } | null
-
+      const userResponse = await fetch('/api/auth/me')
+      if (userResponse.ok) {
+        const userData = await userResponse.json()
         setUser({
-          email: authUser.email || '',
-          name: profile?.name || undefined,
+          email: userData.email || '',
+          name: userData.name || undefined,
         })
       }
 

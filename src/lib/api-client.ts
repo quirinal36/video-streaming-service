@@ -203,4 +203,93 @@ export const videosApi = {
     }>(`/api/videos/${videoId}/progress`, { token }),
 };
 
+// Admin API
+export const adminApi = {
+  getStats: (token: string) =>
+    apiClient<{
+      total_courses: number;
+      total_videos: number;
+      total_users: number;
+      total_enrollments: number;
+    }>('/api/admin/stats', { token }),
+
+  getCourses: (token: string) =>
+    apiClient<Array<{
+      id: string;
+      title: string;
+      description: string;
+      thumbnail_url: string | null;
+      teacher_id: string | null;
+      is_published: boolean;
+      created_at: string;
+    }>>('/api/admin/courses', { token }),
+
+  createCourse: (data: { title: string; description?: string | null; thumbnail_url?: string | null; is_published?: boolean }, token: string) =>
+    apiClient('/api/admin/courses', { method: 'POST', body: data, token }),
+
+  updateCourse: (courseId: string, data: { title?: string; description?: string | null; thumbnail_url?: string | null; is_published?: boolean }, token: string) =>
+    apiClient(`/api/admin/courses/${courseId}`, { method: 'PUT', body: data, token }),
+
+  deleteCourse: (courseId: string, token: string) =>
+    apiClient(`/api/admin/courses/${courseId}`, { method: 'DELETE', token }),
+
+  getCourseVideos: (courseId: string, token: string) =>
+    apiClient<Array<{
+      id: string;
+      title: string;
+      order_index: number;
+    }>>(`/api/admin/courses/${courseId}/videos`, { token }),
+
+  getVideos: (token: string) =>
+    apiClient<Array<{
+      id: string;
+      title: string;
+      description: string | null;
+      course_id: string;
+      bunny_video_id: string;
+      duration_seconds: number;
+      order_index: number;
+    }>>('/api/admin/videos', { token }),
+
+  deleteVideo: (videoId: string, token: string) =>
+    apiClient(`/api/admin/videos/${videoId}`, { method: 'DELETE', token }),
+
+  getUploadUrl: (courseId: string, title: string, token: string) =>
+    apiClient<{
+      upload_url: string;
+      bunny_video_id: string;
+      upload_headers: Record<string, string>;
+    }>(`/api/admin/videos/upload-url?course_id=${courseId}&title=${encodeURIComponent(title)}`, { method: 'POST', token }),
+
+  completeUpload: (params: { bunny_video_id: string; course_id: string; title: string; description?: string; order_index?: number }, token: string) =>
+    apiClient(`/api/admin/videos/complete-upload?bunny_video_id=${params.bunny_video_id}&course_id=${params.course_id}&title=${encodeURIComponent(params.title)}&description=${encodeURIComponent(params.description || '')}&order_index=${params.order_index || 0}`, { method: 'POST', token }),
+
+  getUsers: (token: string) =>
+    apiClient<Array<{
+      id: string;
+      email: string;
+      name: string;
+      role: string;
+      created_at: string;
+    }>>('/api/admin/users', { token }),
+
+  updateUserRole: (userId: string, role: string, token: string) =>
+    apiClient(`/api/admin/users/${userId}/role`, { method: 'PUT', body: { role }, token }),
+
+  getEnrollments: (token: string) =>
+    apiClient<Array<{
+      id: string;
+      user_id: string;
+      course_id: string;
+      enrolled_at: string;
+      expires_at: string | null;
+    }>>('/api/admin/enrollments', { token }),
+
+  createEnrollment: (userId: string, courseId: string, token: string) =>
+    apiClient('/api/admin/enrollments', { method: 'POST', body: { user_id: userId, course_id: courseId }, token }),
+
+  deleteEnrollment: (enrollmentId: string, token: string) =>
+    apiClient(`/api/admin/enrollments/${enrollmentId}`, { method: 'DELETE', token }),
+};
+
 export default apiClient;

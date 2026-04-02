@@ -3,6 +3,33 @@
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
+async function getToken() {
+  const supabase = createClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  return session?.access_token || null
+}
+
+async function apiFetch(path: string, options: RequestInit = {}) {
+  const token = await getToken()
+  if (!token) throw new Error('Not authenticated')
+
+  const res = await fetch(path, {
+    ...options,
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  })
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ detail: 'Request failed' }))
+    throw new Error(error.detail || 'Request failed')
+  }
+
+  return res.json()
+}
+
 interface Course {
   id: string
   title: string
@@ -35,7 +62,6 @@ export default function AdminVideosPage() {
     message: '',
   })
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const supabase = createClient()
 
   const [formData, setFormData] = useState({
     title: '',
@@ -49,13 +75,16 @@ export default function AdminVideosPage() {
 
   const fetchData = async () => {
     setLoading(true)
-    const [coursesRes, videosRes] = await Promise.all([
-      supabase.from('courses').select('id, title').order('title'),
-      supabase.from('videos').select('*').order('course_id').order('order_index'),
-    ])
-
-    if (coursesRes.data) setCourses(coursesRes.data)
-    if (videosRes.data) setVideos(videosRes.data)
+    try {
+      const [coursesData, videosData] = await Promise.all([
+        apiFetch('/api/admin/courses'),
+        apiFetch('/api/admin/videos'),
+      ])
+      setCourses(coursesData)
+      setVideos(videosData)
+    } catch (error) {
+      console.error('Failed to fetch data:', error)
+    }
     setLoading(false)
   }
 
@@ -88,22 +117,12 @@ export default function AdminVideosPage() {
       setUploadProgress({ status: 'uploading', progress: 0, message: '업로드 URL 요청 중...' })
 
       // 1. 업로드 URL 요청
-      const { data: { session } } = await supabase.auth.getSession()
-      const uploadUrlRes = await fetch(
-        `${process.env.NEXT_PUBLIC_FASTAPI_URL || 'http://localhost:8000'}/api/admin/videos/upload-url?course_id=${selectedCourse}&title=${encodeURIComponent(formData.title)}`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${session?.access_token}`,
-          },
-        }
-      )
+      const uploadData = await apiFetch('/api/admin/videos/upload-url', {
+        method: 'POST',
+        body: JSON.stringify({ course_id: selectedCourse, title: formData.title }),
+      })
 
-      if (!uploadUrlRes.ok) {
-        throw new Error('업로드 URL 요청 실패')
-      }
-
-      const { upload_url, bunny_video_id, upload_headers } = await uploadUrlRes.json()
+      const { upload_url, bunny_video_id, upload_headers } = uploadData
 
       setUploadProgress({ status: 'uploading', progress: 10, message: 'Bunny Stream에 업로드 중...' })
 
@@ -121,19 +140,16 @@ export default function AdminVideosPage() {
       setUploadProgress({ status: 'processing', progress: 70, message: '비디오 처리 중...' })
 
       // 3. 업로드 완료 후 DB 저장
-      const completeRes = await fetch(
-        `${process.env.NEXT_PUBLIC_FASTAPI_URL || 'http://localhost:8000'}/api/admin/videos/complete-upload?bunny_video_id=${bunny_video_id}&course_id=${selectedCourse}&title=${encodeURIComponent(formData.title)}&description=${encodeURIComponent(formData.description || '')}&order_index=${formData.order_index}`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${session?.access_token}`,
-          },
-        }
-      )
-
-      if (!completeRes.ok) {
-        throw new Error('비디오 정보 저장 실패')
-      }
+      await apiFetch('/api/admin/videos/complete-upload', {
+        method: 'POST',
+        body: JSON.stringify({
+          bunny_video_id,
+          course_id: selectedCourse,
+          title: formData.title,
+          description: formData.description || '',
+          order_index: formData.order_index,
+        }),
+      })
 
       setUploadProgress({ status: 'complete', progress: 100, message: '업로드 완료!' })
 
@@ -157,23 +173,10 @@ export default function AdminVideosPage() {
     }
   }
 
-  const handleDeleteVideo = async (videoId: string, bunnyVideoId: string) => {
+  const handleDeleteVideo = async (videoId: string) => {
     if (!confirm('정말 삭제하시겠습니까?')) return
-
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-
-      // DB에서 삭제 (Bunny에서도 함께 삭제됨)
-      await fetch(
-        `${process.env.NEXT_PUBLIC_FASTAPI_URL || 'http://localhost:8000'}/api/admin/videos/${videoId}`,
-        {
-          method: 'DELETE',
-          headers: {
-            Authorization: `Bearer ${session?.access_token}`,
-          },
-        }
-      )
-
+      await apiFetch(`/api/admin/videos/${videoId}`, { method: 'DELETE' })
       fetchData()
     } catch (error) {
       console.error('Delete error:', error)
@@ -351,7 +354,7 @@ export default function AdminVideosPage() {
                 </td>
                 <td className="px-6 py-4 text-right text-sm">
                   <button
-                    onClick={() => handleDeleteVideo(video.id, video.bunny_video_id)}
+                    onClick={() => handleDeleteVideo(video.id)}
                     className="text-red-600 hover:text-red-900"
                   >
                     삭제

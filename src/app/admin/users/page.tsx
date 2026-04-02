@@ -33,68 +33,104 @@ export default function AdminUsersPage() {
   const [showEnrollModal, setShowEnrollModal] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [selectedCourse, setSelectedCourse] = useState<string>('')
-  const supabase = createClient()
 
   useEffect(() => {
     fetchData()
   }, [])
 
+  async function getToken() {
+    const supabase = createClient()
+    const { data: { session } } = await supabase.auth.getSession()
+    return session?.access_token || null
+  }
+
+  async function apiFetch(path: string, options: RequestInit = {}) {
+    const token = await getToken()
+    if (!token) throw new Error('Not authenticated')
+
+    const res = await fetch(path, {
+      ...options,
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    })
+
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: 'Request failed' }))
+      throw new Error(error.detail || 'Request failed')
+    }
+
+    return res.json()
+  }
+
   const fetchData = async () => {
     setLoading(true)
-    const [usersRes, coursesRes, enrollmentsRes] = await Promise.all([
-      supabase.from('profiles').select('*').order('created_at', { ascending: false }),
-      supabase.from('courses').select('id, title').order('title'),
-      supabase.from('enrollments').select('*'),
-    ])
-
-    if (usersRes.data) setUsers(usersRes.data as User[])
-    if (coursesRes.data) setCourses(coursesRes.data as Course[])
-    if (enrollmentsRes.data) setEnrollments(enrollmentsRes.data as Enrollment[])
+    try {
+      const [usersData, coursesData, enrollmentsData] = await Promise.all([
+        apiFetch('/api/admin/users'),
+        apiFetch('/api/admin/courses'),
+        apiFetch('/api/admin/enrollments'),
+      ])
+      setUsers(usersData)
+      setCourses(coursesData)
+      setEnrollments(enrollmentsData)
+    } catch (error) {
+      console.error('Failed to fetch data:', error)
+    }
     setLoading(false)
   }
 
   const handleRoleChange = async (userId: string, newRole: string) => {
-    const { error } = await supabase
-      .from('profiles')
-      .update({ role: newRole } as never)
-      .eq('id', userId)
-
-    if (!error) {
+    try {
+      await apiFetch(`/api/admin/users/${userId}/role`, {
+        method: 'PUT',
+        body: JSON.stringify({ role: newRole }),
+      })
       setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u))
+    } catch (error) {
+      console.error('Failed to update role:', error)
     }
   }
 
   const handleEnroll = async () => {
     if (!selectedUser || !selectedCourse) return
 
-    // 이미 등록되어 있는지 확인
     const existing = enrollments.find(
       e => e.user_id === selectedUser.id && e.course_id === selectedCourse
     )
-
     if (existing) {
       alert('이미 등록된 강의입니다.')
       return
     }
 
-    const { error } = await supabase.from('enrollments').insert({
-      user_id: selectedUser.id,
-      course_id: selectedCourse,
-    } as never)
-
-    if (!error) {
+    try {
+      await apiFetch('/api/admin/enrollments', {
+        method: 'POST',
+        body: JSON.stringify({
+          user_id: selectedUser.id,
+          course_id: selectedCourse,
+        }),
+      })
       fetchData()
       setShowEnrollModal(false)
       setSelectedUser(null)
       setSelectedCourse('')
+    } catch (error) {
+      console.error('Failed to enroll:', error)
+      alert('등록 실패')
     }
   }
 
   const handleUnenroll = async (enrollmentId: string) => {
     if (!confirm('수강 등록을 취소하시겠습니까?')) return
-
-    await supabase.from('enrollments').delete().eq('id', enrollmentId)
-    fetchData()
+    try {
+      await apiFetch(`/api/admin/enrollments/${enrollmentId}`, { method: 'DELETE' })
+      fetchData()
+    } catch (error) {
+      console.error('Failed to unenroll:', error)
+    }
   }
 
   const getUserEnrollments = (userId: string) => {
