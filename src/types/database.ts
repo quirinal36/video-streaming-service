@@ -151,7 +151,6 @@ export interface Database {
           last_watched_at?: string
         }
       }
-    }
       comments: {
         Row: {
           id: string
