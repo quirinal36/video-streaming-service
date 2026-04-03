@@ -22,16 +22,16 @@ async def admin_get_stats(current_user: dict = Depends(get_current_admin_user)):
     """대시보드 통계 조회 (관리자)"""
     supabase = get_supabase_admin_client()
 
-    courses = supabase.table("courses").select("*", count="exact").execute()
-    videos = supabase.table("videos").select("*", count="exact").execute()
-    users = supabase.table("profiles").select("*", count="exact").execute()
-    enrollments = supabase.table("enrollments").select("*", count="exact").execute()
+    courses = supabase.table("courses").select("id").execute()
+    videos = supabase.table("videos").select("id").execute()
+    users = supabase.table("profiles").select("id").execute()
+    enrollments = supabase.table("enrollments").select("id").execute()
 
     return {
-        "totalCourses": courses.count or 0,
-        "totalVideos": videos.count or 0,
-        "totalUsers": users.count or 0,
-        "totalEnrollments": enrollments.count or 0,
+        "totalCourses": len(courses.data or []),
+        "totalVideos": len(videos.data or []),
+        "totalUsers": len(users.data or []),
+        "totalEnrollments": len(enrollments.data or []),
     }
 
 
