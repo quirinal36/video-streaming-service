@@ -50,15 +50,8 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // 회원가입 페이지는 로그인으로 리다이렉트
-  if (request.nextUrl.pathname.startsWith('/signup')) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    return NextResponse.redirect(url)
-  }
-
-  // 이미 로그인한 사용자가 로그인 페이지 접근 시
-  const authPaths = ['/login']
+  // 이미 로그인한 사용자가 로그인/회원가입 페이지 접근 시
+  const authPaths = ['/login', '/signup']
   const isAuthPath = authPaths.some((path) =>
     request.nextUrl.pathname.startsWith(path)
   )
