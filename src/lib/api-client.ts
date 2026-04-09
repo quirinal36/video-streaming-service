@@ -292,4 +292,53 @@ export const adminApi = {
     apiClient(`/api/admin/enrollments/${enrollmentId}`, { method: 'DELETE', token }),
 };
 
+// Teacher API
+export const teacherApi = {
+  getCourses: (token: string) =>
+    apiClient<Array<{
+      id: string;
+      title: string;
+      description: string;
+      thumbnail_url: string | null;
+      teacher_id: string | null;
+      is_published: boolean;
+      created_at: string;
+    }>>('/api/teacher/courses', { token }),
+
+  createCourse: (data: { title: string; description?: string | null; thumbnail_url?: string | null; is_published?: boolean }, token: string) =>
+    apiClient('/api/teacher/courses', { method: 'POST', body: data, token }),
+
+  updateCourse: (courseId: string, data: { title?: string; description?: string | null; thumbnail_url?: string | null; is_published?: boolean }, token: string) =>
+    apiClient(`/api/teacher/courses/${courseId}`, { method: 'PUT', body: data, token }),
+
+  deleteCourse: (courseId: string, token: string) =>
+    apiClient(`/api/teacher/courses/${courseId}`, { method: 'DELETE', token }),
+
+  getCourseVideos: (courseId: string, token: string) =>
+    apiClient<Array<{
+      id: string;
+      title: string;
+      description: string | null;
+      duration_seconds: number;
+      order_index: number;
+      bunny_video_id: string;
+    }>>(`/api/teacher/courses/${courseId}/videos`, { token }),
+
+  getUploadUrl: (courseId: string, title: string, token: string) =>
+    apiClient<{
+      upload_url: string;
+      bunny_video_id: string;
+      upload_headers: Record<string, string>;
+    }>(`/api/teacher/videos/upload-url?course_id=${courseId}&title=${encodeURIComponent(title)}`, { method: 'POST', token }),
+
+  completeUpload: (params: { bunny_video_id: string; course_id: string; title: string; description?: string; order_index?: number }, token: string) =>
+    apiClient(`/api/teacher/videos/complete-upload?bunny_video_id=${params.bunny_video_id}&course_id=${params.course_id}&title=${encodeURIComponent(params.title)}&description=${encodeURIComponent(params.description || '')}&order_index=${params.order_index || 0}`, { method: 'POST', token }),
+
+  deleteVideo: (videoId: string, token: string) =>
+    apiClient(`/api/teacher/videos/${videoId}`, { method: 'DELETE', token }),
+
+  getVideoStatus: (videoId: string, token: string) =>
+    apiClient<{ status: string }>(`/api/teacher/videos/${videoId}/status`, { token }),
+};
+
 export default apiClient;
