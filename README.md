@@ -89,7 +89,6 @@ video-streaming-service/
 ```
 
 ## 참고 자료
-
 - [Bunny Stream API](https://docs.bunny.net/reference/stream-api-overview)
 - [Supabase Documentation](https://supabase.com/docs)
 - [Next.js Documentation](https://nextjs.org/docs)
